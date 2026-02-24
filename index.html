@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SquashRef</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: #0a0a0f;
+    color: #e2e8f0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  .bg-glow {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(234,88,12,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.06) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .content {
+    position: relative; z-index: 1;
+    max-width: 480px; margin: 0 auto; padding: 0 16px;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .bebas { font-family: 'Bebas Neue', sans-serif; }
+
+  /* Setup */
+  .setup-title { font-size: 42px; letter-spacing: 4px; text-align: center; color: #ea580c; text-shadow: 0 0 30px rgba(234,88,12,0.3); }
+  .setup-sub { font-size: 11px; text-align: center; color: #64748b; letter-spacing: 2px; margin-bottom: 20px; }
+  .setup-box {
+    background: linear-gradient(135deg, rgba(234,88,12,0.1), rgba(234,88,12,0.02));
+    border: 1px solid rgba(234,88,12,0.2); border-radius: 16px; padding: 24px; margin-top: 32px;
+  }
+  .setup-label { font-size: 10px; color: #94a3b8; letter-spacing: 2px; margin-bottom: 6px; display: block; }
+  .setup-input {
+    width: 100%; background: rgba(15,23,42,0.8); border: 1px solid rgba(100,116,139,0.3);
+    border-radius: 8px; padding: 12px 14px; color: #e2e8f0; font-size: 16px;
+    font-family: 'Outfit', sans-serif; outline: none; margin-bottom: 16px;
+  }
+  .setup-input:focus { border-color: rgba(234,88,12,0.5); }
+  .format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0; }
+  .format-card {
+    background: rgba(15,23,42,0.6); border-radius: 10px; padding: 14px; text-align: center;
+  }
+  .format-card-label { font-size: 10px; color: #64748b; letter-spacing: 1px; }
+  .format-card-val { font-size: 16px; font-weight: 600; margin-top: 4px; }
+  .format-card-sub { font-size: 11px; color: #94a3b8; }
+
+  .btn-start {
+    width: 100%; margin-top: 24px; padding: 16px 0;
+    background: linear-gradient(135deg, #ea580c, #dc2626);
+    border: none; border-radius: 12px; color: #fff; font-size: 18px;
+    font-family: 'Bebas Neue', sans-serif; letter-spacing: 4px; cursor: pointer;
+    box-shadow: 0 4px 24px rgba(234,88,12,0.3);
+  }
+  .info-box {
+    margin-top: 24px; padding: 16px;
+    background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 10px; font-size: 12px; color: #94a3b8; line-height: 1.6;
+  }
+  .info-box strong { color: #3b82f6; }
+
+  /* Match */
+  .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 8px; }
+  .btn-end { background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 4px; }
+  .timer { font-size: 13px; cursor: pointer; }
+  .timer.running { color: #ea580c; }
+  .timer.paused { color: #64748b; }
+  .game-num { font-size: 11px; color: #64748b; }
+
+  .point-indicator {
+    text-align: center; padding: 4px 0; font-size: 14px; letter-spacing: 3px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .point-indicator.match { color: #ef4444; }
+  .point-indicator.game { color: #f59e0b; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+  .games-dots { display: flex; justify-content: center; gap: 24px; margin-bottom: 4px; }
+  .dots { display: flex; gap: 4px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .dot.won { background: #22c55e; }
+  .dot.empty { background: rgba(100,116,139,0.2); border: 1px solid rgba(100,116,139,0.3); }
+  .dots-label { font-size: 10px; color: #334155; align-self: center; padding-top: 0; }
+
+  .scoreboard {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.7));
+    border: 1px solid rgba(100,116,139,0.15); border-radius: 16px; padding: 16px 8px; margin-bottom: 12px;
+  }
+  .player-col { text-align: center; }
+  .player-name {
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
+  }
+  .player-name.serving { color: #ea580c; }
+  .player-name.not-serving { color: #94a3b8; }
+  .player-name.p2-serving { color: #3b82f6; }
+  .score-btn {
+    font-size: 64px; font-family: 'Bebas Neue', sans-serif; color: #e2e8f0;
+    background: none; border: none; cursor: pointer; padding: 8px 20px; border-radius: 12px;
+    line-height: 1; transition: transform 0.1s;
+  }
+  .score-btn:active { transform: scale(0.95); }
+  .score-divider { font-size: 20px; color: #1e293b; font-weight: 300; padding: 0 8px; }
+
+  .serve-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .serve-label { font-size: 11px; color: #64748b; }
+  .serve-btn {
+    width: 40px; height: 32px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .serve-btn.active { border: 2px solid #ea580c; background: rgba(234,88,12,0.15); color: #ea580c; }
+  .serve-btn.inactive { border: 1px solid rgba(100,116,139,0.3); background: rgba(15,23,42,0.5); color: #64748b; }
+  .server-btn { height: 32px; padding: 0 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .server-btn.active { border: 2px solid #ea580c; background: rgba(234,88,12,0.15); color: #ea580c; }
+  .server-btn.inactive { border: 1px solid rgba(100,116,139,0.3); background: rgba(15,23,42,0.5); color: #64748b; }
+  .serve-divider { width: 1px; background: rgba(100,116,139,0.2); height: 24px; margin: 0 4px; }
+
+  .camera-box {
+    border-radius: 12px; overflow: hidden; margin-bottom: 12px; background: #0f172a; position: relative;
+  }
+  .camera-box.on { border: 2px solid rgba(234,88,12,0.3); }
+  .camera-box.off { border: 1px dashed rgba(100,116,139,0.3); }
+  .camera-box video { width: 100%; display: block; max-height: 220px; object-fit: cover; }
+  .camera-placeholder { padding: 32px 16px; text-align: center; color: #475569; font-size: 13px; }
+  .rec-dot {
+    position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%;
+    background: #ef4444; animation: pulse 2s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(239,68,68,0.5);
+  }
+
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .btn-camera {
+    padding: 14px 0; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-camera.start { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #3b82f6; }
+  .btn-camera.stop { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
+  .btn-analyze {
+    padding: 14px 0; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-analyze.enabled {
+    background: linear-gradient(135deg, rgba(234,88,12,0.2), rgba(234,88,12,0.08));
+    border: 1px solid rgba(234,88,12,0.4); color: #ea580c;
+  }
+  .btn-analyze.disabled { background: rgba(30,41,59,0.5); border: 1px solid rgba(100,116,139,0.15); color: #334155; cursor: default; }
+
+  .quick-calls-label { font-size: 10px; color: #475569; letter-spacing: 2px; margin-bottom: 8px; text-align: center; }
+  .calls-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+  .call-btn { padding: 10px 4px; border-radius: 8px; cursor: pointer; text-align: center; }
+  .call-btn-icon { font-size: 16px; }
+  .call-btn-label { font-size: 10px; font-weight: 600; margin-top: 2px; }
+
+  .log-box {
+    background: rgba(15,23,42,0.5); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;
+  }
+  .log-title { font-size: 9px; color: #475569; letter-spacing: 2px; margin-bottom: 6px; }
+  .log-entry { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 2px; }
+
+  /* Review */
+  .review-title { font-size: 28px; letter-spacing: 4px; text-align: center; padding: 20px 0 12px; color: #ea580c; }
+  .captured-img { width: 100%; display: block; border-radius: 12px; border: 2px solid rgba(234,88,12,0.3); margin-bottom: 16px; }
+  .analysis-box {
+    background: rgba(15,23,42,0.8); border: 1px solid rgba(100,116,139,0.2);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px; min-height: 80px;
+  }
+  .analysis-text { font-size: 14px; line-height: 1.7; color: #cbd5e1; white-space: pre-wrap; }
+  .loading-text { text-align: center; color: #ea580c; }
+  .review-calls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .review-call-btn {
+    padding: 14px 8px; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s;
+  }
+  .review-call-icon { font-size: 22px; }
+  .review-call-label { font-size: 14px; font-weight: 600; margin-top: 4px; }
+  .review-call-desc { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .award-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .award-btn { padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .award-p1 { background: rgba(234,88,12,0.1); border: 1px solid rgba(234,88,12,0.3); color: #ea580c; }
+  .award-p2 { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #3b82f6; }
+  .btn-back {
+    width: 100%; padding: 12px 0; background: rgba(100,116,139,0.15);
+    border: 1px solid rgba(100,116,139,0.2); border-radius: 10px;
+    color: #94a3b8; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+
+  /* Result */
+  .result-winner { font-size: 28px; letter-spacing: 3px; color: #22c55e; margin-top: 8px; }
+  .result-scores { display: flex; justify-content: center; gap: 32px; margin: 24px 0 16px; }
+  .result-score-val { font-size: 48px; line-height: 1; }
+  .result-score-val.won { color: #22c55e; }
+  .result-score-val.lost { color: #ef4444; }
+  .result-name { font-size: 14px; color: #94a3b8; }
+  .result-dash { font-size: 24px; color: #334155; align-self: center; padding-top: 20px; }
+  .result-game { display: flex; justify-content: center; gap: 8px; font-size: 14px; color: #64748b; margin-bottom: 4px; }
+  .result-meta { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+  .btn-newmatch {
+    width: 100%; padding: 14px 0;
+    background: linear-gradient(135deg, #ea580c, #dc2626);
+    border: none; border-radius: 12px; color: #fff; font-size: 16px;
+    font-family: 'Bebas Neue', sans-serif; letter-spacing: 3px; cursor: pointer;
+  }
+
+  /* Call overlay */
+  .call-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7); z-index: 100;
+    animation: fadeInOut 2.5s ease-in-out forwards;
+  }
+  .call-overlay-icon { font-size: 72px; }
+  .call-overlay-label { font-size: 64px; letter-spacing: 6px; }
+  .call-overlay-desc { font-size: 16px; color: #94a3b8; margin-top: 8px; }
+  @keyframes fadeInOut { 0% { opacity:0; } 15% { opacity:1; } 80% { opacity:1; } 100% { opacity:0; pointer-events:none; } }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="content">
+
+<!-- SETUP SCREEN -->
+<div id="screen-setup" class="screen active">
+  <div style="padding-top:60px; text-align:center">
+    <div style="font-size:64px; margin-bottom:8px">🏸</div>
+    <div class="bebas setup-title">SQUASH REF AI</div>
+    <div class="mono setup-sub">AI-ASSISTED REFEREE SYSTEM</div>
+    <div class="setup-box">
+      <div class="mono" style="font-size:13px; font-weight:600; color:#ea580c; margin-bottom:16px; letter-spacing:1px">MATCH SETUP</div>
+      <label class="mono setup-label">PLAYER 1</label>
+      <input id="inp-p1" class="setup-input" value="Player 1">
+      <label class="mono setup-label">PLAYER 2</label>
+      <input id="inp-p2" class="setup-input" value="Player 2">
+      <div class="format-grid">
+        <div class="format-card">
+          <div class="mono format-card-label">FORMAT</div>
+          <div class="format-card-val">Best of 5</div>
+          <div class="format-card-sub">Games to 11</div>
+        </div>
+        <div class="format-card">
+          <div class="mono format-card-label">SCORING</div>
+          <div class="format-card-val">PAR</div>
+          <div class="format-card-sub">Point-a-rally</div>
+        </div>
+      </div>
+    </div>
+    <button class="bebas btn-start" onclick="startMatch()">START MATCH</button>
+    <div class="info-box">
+      <strong>How AI Ref works:</strong> Point your camera at the court. When there's a disputed call, tap "Analyze Play" — the AI will examine the frame and suggest Let, Stroke, No Let, or Out. You always make the final call.
+    </div>
+  </div>
+</div>
+
+<!-- MATCH SCREEN -->
+<div id="screen-match" class="screen">
+  <div class="top-bar">
+    <button class="mono btn-end" onclick="resetMatch()">✕ END</button>
+    <div id="match-timer" class="mono timer running" onclick="toggleTimer()">0:00 ▸</div>
+    <div id="match-game-num" class="mono game-num">G1/5</div>
+  </div>
+  <div id="point-indicator" class="bebas point-indicator" style="display:none"></div>
+  <div class="games-dots">
+    <div class="dots" id="p1-dots"></div>
+    <div class="mono dots-label">GAMES</div>
+    <div class="dots" id="p2-dots"></div>
+  </div>
+  <div class="scoreboard">
+    <div class="player-col">
+      <div id="p1-name-display" class="player-name serving">● Player 1</div>
+      <button class="score-btn" id="p1-score-btn" onclick="awardPoint(1)">0</button>
+    </div>
+    <div class="score-divider">—</div>
+    <div class="player-col">
+      <div id="p2-name-display" class="player-name not-serving">Player 2</div>
+      <button class="score-btn" id="p2-score-btn" onclick="awardPoint(2)">0</button>
+    </div>
+  </div>
+  <div id="handout-indicator" class="mono" style="text-align:center; font-size:11px; color:#f59e0b; letter-spacing:2px; margin-bottom:6px; display:none">⇄ HANDOUT</div>
+  <div class="serve-row">
+    <span class="mono serve-label">SERVE:</span>
+    <button id="btn-serve-L" class="mono serve-btn inactive" onclick="setServeSide('L')">L</button>
+    <button id="btn-serve-R" class="mono serve-btn active" onclick="setServeSide('R')">R</button>
+    <div class="serve-divider"></div>
+    <span class="mono serve-label">SERVER:</span>
+    <button id="btn-server-1" class="mono server-btn active" onclick="setServer(1)">P1</button>
+    <button id="btn-server-2" class="mono server-btn inactive" onclick="setServer(2)">P2</button>
+  </div>
+  <div id="camera-container" class="camera-box off">
+    <div id="camera-placeholder" class="camera-placeholder">📷 Camera off — tap below to enable AI referee</div>
+    <video id="camera-video" autoplay playsinline muted style="display:none"></video>
+    <div id="rec-dot" class="rec-dot" style="display:none"></div>
+  </div>
+  <canvas id="capture-canvas" style="display:none"></canvas>
+  <div class="action-grid">
+    <button id="btn-cam-toggle" class="btn-camera start" onclick="toggleCamera()">📷 Start Camera</button>
+    <button id="btn-analyze" class="btn-analyze disabled" onclick="analyzePlay()">🤖 Analyze Play</button>
+  </div>
+  <div class="mono quick-calls-label">QUICK CALLS</div>
+  <div class="calls-grid">
+    <button class="call-btn" style="background:#f59e0b11; border:1px solid #f59e0b33" onclick="makeCall('LET')">
+      <div class="call-btn-icon">🔄</div><div class="call-btn-label" style="color:#f59e0b">Let</div>
+    </button>
+    <button class="call-btn" style="background:#ef444411; border:1px solid #ef444433" onclick="makeCall('STROKE')">
+      <div class="call-btn-icon">⚡</div><div class="call-btn-label" style="color:#ef4444">Stroke</div>
+    </button>
+    <button class="call-btn" style="background:#22c55e11; border:1px solid #22c55e33" onclick="makeCall('NO_LET')">
+      <div class="call-btn-icon">✓</div><div class="call-btn-label" style="color:#22c55e">No Let</div>
+    </button>
+    <button class="call-btn" style="background:#a855f711; border:1px solid #a855f733" onclick="makeCall('OUT')">
+      <div class="call-btn-icon">✗</div><div class="call-btn-label" style="color:#a855f7">Out!</div>
+    </button>
+  </div>
+  <div id="prev-games-box" class="log-box" style="display:none">
+    <div class="mono log-title">PREVIOUS GAMES</div>
+    <div id="prev-games-list"></div>
+  </div>
+  <div id="call-log-box" class="log-box" style="display:none">
+    <div class="mono log-title">CALL LOG</div>
+    <div id="call-log-list"></div>
+  </div>
+</div>
+
+<!-- REVIEW SCREEN -->
+<div id="screen-review" class="screen">
+  <div class="bebas review-title">AI ANALYSIS</div>
+  <img id="review-img" class="captured-img" style="display:none">
+  <div class="analysis-box">
+    <div id="analysis-loading" class="loading-text" style="display:none">
+      <div style="font-size:24px; margin-bottom:8px; animation:spin 1s linear infinite; display:inline-block">⏳</div>
+      <div class="mono" style="font-size:13px">Analyzing play...</div>
+    </div>
+    <div id="analysis-result" class="analysis-text" style="display:none"></div>
+    <div id="analysis-waiting" style="color:#64748b; font-size:13px; text-align:center">Waiting for analysis...</div>
+  </div>
+  <div class="mono" style="font-size:12px; color:#ea580c; font-weight:600; text-align:center; margin-bottom:12px; letter-spacing:1px">MAKE YOUR CALL</div>
+  <div class="review-calls">
+    <button class="review-call-btn" style="background:#f59e0b22; border:1px solid #f59e0b44" onclick="makeCall('LET')">
+      <div class="review-call-icon">🔄</div><div class="review-call-label" style="color:#f59e0b">Let</div><div class="review-call-desc">Rally replayed</div>
+    </button>
+    <button class="review-call-btn" style="background:#ef444422; border:1px solid #ef444444" onclick="makeCall('STROKE')">
+      <div class="review-call-icon">⚡</div><div class="review-call-label" style="color:#ef4444">Stroke</div><div class="review-call-desc">Point awarded</div>
+    </button>
+    <button class="review-call-btn" style="background:#22c55e22; border:1px solid #22c55e44" onclick="makeCall('NO_LET')">
+      <div class="review-call-icon">✓</div><div class="review-call-label" style="color:#22c55e">No Let</div><div class="review-call-desc">Play on</div>
+    </button>
+    <button class="review-call-btn" style="background:#a855f722; border:1px solid #a855f744" onclick="makeCall('OUT')">
+      <div class="review-call-icon">✗</div><div class="review-call-label" style="color:#a855f7">Out!</div><div class="review-call-desc">Ball out of court</div>
+    </button>
+  </div>
+  <div id="award-row" class="award-grid" style="display:none">
+    <button class="award-btn award-p1" id="award-p1-btn" onclick="awardAndReturn(1)">Point → P1</button>
+    <button class="award-btn award-p2" id="award-p2-btn" onclick="awardAndReturn(2)">Point → P2</button>
+  </div>
+  <button class="btn-back" onclick="backToMatch()">Back to Match</button>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="screen-result" class="screen">
+  <div style="padding-top:60px; text-align:center">
+    <div style="font-size:48px; margin-bottom:8px">🏆</div>
+    <div class="bebas" style="font-size:36px; letter-spacing:4px; text-align:center; color:#ea580c">MATCH OVER</div>
+    <div id="result-winner" class="bebas result-winner"></div>
+    <div class="result-scores">
+      <div style="text-align:center">
+        <div id="result-p1-name" class="result-name"></div>
+        <div id="result-p1-games" class="bebas result-score-val"></div>
+      </div>
+      <div class="result-dash">—</div>
+      <div style="text-align:center">
+        <div id="result-p2-name" class="result-name"></div>
+        <div id="result-p2-games" class="bebas result-score-val"></div>
+      </div>
+    </div>
+    <div id="result-game-list"></div>
+    <div id="result-meta" class="mono result-meta"></div>
+    <button class="bebas btn-newmatch" onclick="resetMatch()">NEW MATCH</button>
+  </div>
+</div>
+
+<!-- CALL OVERLAY -->
+<div id="call-overlay" class="call-overlay" style="display:none">
+  <div style="text-align:center">
+    <div id="overlay-icon" class="call-overlay-icon"></div>
+    <div id="overlay-label" class="bebas call-overlay-label"></div>
+    <div id="overlay-desc" class="call-overlay-desc"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── State ──
+const GAME_POINT = 11, MAX_GAMES = 5, GAMES_TO_WIN = 3;
+const CALLS = {
+  LET:    { label:"Let",    color:"#f59e0b", icon:"🔄", desc:"Rally replayed" },
+  STROKE: { label:"Stroke", color:"#ef4444", icon:"⚡", desc:"Point awarded" },
+  NO_LET: { label:"No Let", color:"#22c55e", icon:"✓",  desc:"Play on" },
+  OUT:    { label:"Out!",   color:"#a855f7", icon:"✗",  desc:"Ball out of court" },
+};
+
+let state = {
+  p1Name:"Player 1", p2Name:"Player 2",
+  p1Score:0, p2Score:0, p1Games:0, p2Games:0,
+  gameScores:[], serveSide:"R", server:1,
+  rallies:[], matchTime:0, timerRunning:false,
+  cameraActive:false, stream:null, capturedFrame:null,
+  aiAnalysis:null, lastCallType:null, isHandout:true,
+};
+let timerInterval = null;
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60);
+  return m + ':' + String(s%60).padStart(2,'0');
+}
+
+// ── Timer ──
+function startTimer() {
+  state.timerRunning = true;
+  timerInterval = setInterval(() => {
+    state.matchTime++;
+    updateTimerDisplay();
+  }, 1000);
+  updateTimerDisplay();
+}
+function stopTimer() {
+  state.timerRunning = false;
+  clearInterval(timerInterval);
+  updateTimerDisplay();
+}
+function toggleTimer() {
+  if (state.timerRunning) stopTimer(); else startTimer();
+}
+function updateTimerDisplay() {
+  const el = document.getElementById('match-timer');
+  el.textContent = formatTime(state.matchTime) + (state.timerRunning ? ' ▸' : ' ▪');
+  el.className = 'mono timer ' + (state.timerRunning ? 'running' : 'paused');
+}
+
+// ── Camera ──
+async function toggleCamera() {
+  if (state.cameraActive) {
+    if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+    state.cameraActive = false;
+  } else {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:"environment", width:{ideal:1280}, height:{ideal:720} }
+      });
+      state.stream = stream;
+      const video = document.getElementById('camera-video');
+      video.srcObject = stream;
+      video.style.display = 'block';
+      state.cameraActive = true;
+    } catch(e) {
+      alert("Camera access denied. Please allow camera access and try again.");
+      return;
+    }
+  }
+  updateCameraUI();
+}
+
+function updateCameraUI() {
+  const container = document.getElementById('camera-container');
+  const placeholder = document.getElementById('camera-placeholder');
+  const video = document.getElementById('camera-video');
+  const dot = document.getElementById('rec-dot');
+  const toggleBtn = document.getElementById('btn-cam-toggle');
+  const analyzeBtn = document.getElementById('btn-analyze');
+
+  if (state.cameraActive) {
+    container.className = 'camera-box on';
+    placeholder.style.display = 'none';
+    video.style.display = 'block';
+    dot.style.display = 'block';
+    toggleBtn.textContent = '■ Stop Camera';
+    toggleBtn.className = 'btn-camera stop';
+    analyzeBtn.className = 'btn-analyze enabled';
+  } else {
+    container.className = 'camera-box off';
+    placeholder.style.display = 'block';
+    video.style.display = 'none';
+    dot.style.display = 'none';
+    toggleBtn.textContent = '📷 Start Camera';
+    toggleBtn.className = 'btn-camera start';
+    analyzeBtn.className = 'btn-analyze disabled';
+  }
+}
+
+function captureFrame() {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('capture-canvas');
+  if (!video || !video.videoWidth) return null;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
+
+// ── AI Analysis ──
+async function analyzePlay() {
+  if (!state.cameraActive) return;
+  const frame = captureFrame();
+  if (!frame) { alert("No camera frame. Make sure camera is running."); return; }
+  state.capturedFrame = frame;
+
+  showScreen('review');
+  document.getElementById('review-img').src = frame;
+  document.getElementById('review-img').style.display = 'block';
+  document.getElementById('analysis-loading').style.display = 'block';
+  document.getElementById('analysis-result').style.display = 'none';
+  document.getElementById('analysis-waiting').style.display = 'none';
+  document.getElementById('award-row').style.display = 'none';
+
+  try {
+    const base64 = frame.split(',')[1];
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: `You are an expert squash referee analyzing a court image. Assess:
+1. Player positions relative to each other and the T
+2. Whether either player is blocking the other's direct path to the ball
+3. Whether the striker had a clear swing
+4. Whether the ball path to the front wall was obstructed
+5. Any potential dangerous play
+
+Based on what you can see, recommend one of:
+- LET (replay the rally - interference but striker made effort to play)
+- STROKE (point to obstructed player - clear interference preventing shot)
+- NO LET (no interference - play continues)
+- OUT (if ball appears out of bounds)
+
+If you cannot clearly determine positions (e.g. image is blurry, not a squash court, etc.), say so honestly and suggest the referee make the call.
+
+Be concise. Format: Start with your CALL in caps, then a brief 2-3 sentence explanation.` }
+          ]
+        }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('\n') || 'Unable to analyze.';
+    state.aiAnalysis = text;
+    document.getElementById('analysis-loading').style.display = 'none';
+    document.getElementById('analysis-result').textContent = text;
+    document.getElementById('analysis-result').style.display = 'block';
+  } catch(e) {
+    document.getElementById('analysis-loading').style.display = 'none';
+    document.getElementById('analysis-result').textContent = 'AI analysis failed — check your connection. You can still make the call manually.';
+    document.getElementById('analysis-result').style.display = 'block';
+  }
+}
+
+// ── Scoring ──
+function checkGameOver(s1, s2) {
+  if (s1 >= GAME_POINT && s1 - s2 >= 2) return 1;
+  if (s2 >= GAME_POINT && s2 - s1 >= 2) return 2;
+  return 0;
+}
+
+function awardPoint(player) {
+  if (player === 1) state.p1Score++; else state.p2Score++;
+
+  state.rallies.push({
+    time: formatTime(state.matchTime),
+    p1Score: state.p1Score, p2Score: state.p2Score,
+    server: state.server, serveSide: state.serveSide,
+    type: 'point', winner: player,
+  });
+
+  if (player === state.server) {
+    state.serveSide = state.serveSide === 'R' ? 'L' : 'R';
+    state.isHandout = false;
+  } else {
+    state.server = player;
+    state.serveSide = 'R';
+    state.isHandout = true;
+  }
+
+  const gameWinner = checkGameOver(state.p1Score, state.p2Score);
+  if (gameWinner) {
+    state.gameScores.push({ p1: state.p1Score, p2: state.p2Score, winner: gameWinner });
+    if (gameWinner === 1) state.p1Games++; else state.p2Games++;
+    state.p1Score = 0;
+    state.p2Score = 0;
+
+    if (state.p1Games >= GAMES_TO_WIN || state.p2Games >= GAMES_TO_WIN) {
+      stopTimer();
+      showResultScreen();
+      return;
+    }
+    state.server = gameWinner === 1 ? 2 : 1;
+    state.serveSide = 'R';
+    state.isHandout = true;
+  }
+
+  updateMatchUI();
+}
+
+function awardAndReturn(player) {
+  awardPoint(player);
+  backToMatch();
+}
+
+// ── Calls ──
+function makeCall(callType) {
+  const call = CALLS[callType];
+  state.lastCallType = callType;
+
+  state.rallies.push({
+    time: formatTime(state.matchTime),
+    p1Score: state.p1Score, p2Score: state.p2Score,
+    server: state.server, serveSide: state.serveSide,
+    type: callType.toLowerCase(), aiAssisted: !!state.aiAnalysis,
+  });
+
+  // Show overlay
+  const overlay = document.getElementById('call-overlay');
+  document.getElementById('overlay-icon').textContent = call.icon;
+  const label = document.getElementById('overlay-label');
+  label.textContent = call.label;
+  label.style.color = call.color;
+  label.style.textShadow = '0 0 40px ' + call.color + '66';
+  document.getElementById('overlay-desc').textContent = call.desc;
+  overlay.style.display = 'flex';
+  overlay.style.animation = 'none';
+  overlay.offsetHeight; // reflow
+  overlay.style.animation = 'fadeInOut 2.5s ease-in-out forwards';
+  setTimeout(() => { overlay.style.display = 'none'; }, 2500);
+
+  if (callType === 'STROKE' || callType === 'OUT') {
+    // Show award buttons
+    if (document.getElementById('screen-review').classList.contains('active')) {
+      document.getElementById('award-p1-btn').textContent = 'Point → ' + state.p1Name;
+      document.getElementById('award-p2-btn').textContent = 'Point → ' + state.p2Name;
+      document.getElementById('award-row').style.display = 'grid';
+    } else {
+      // On match screen, show a quick prompt
+      setTimeout(() => {
+        const who = prompt(`Award point to whom?\n1 = ${state.p1Name}\n2 = ${state.p2Name}`, '');
+        if (who === '1') awardPoint(1);
+        else if (who === '2') awardPoint(2);
+      }, 300);
+    }
+  }
+
+  updateMatchUI();
+}
+
+function backToMatch() {
+  state.aiAnalysis = null;
+  state.capturedFrame = null;
+  document.getElementById('award-row').style.display = 'none';
+  showScreen('match');
+  updateMatchUI();
+}
+
+// ── UI Updates ──
+function updateMatchUI() {
+  document.getElementById('p1-score-btn').textContent = state.p1Score;
+  document.getElementById('p2-score-btn').textContent = state.p2Score;
+
+  // Names
+  const p1d = document.getElementById('p1-name-display');
+  const p2d = document.getElementById('p2-name-display');
+  p1d.textContent = (state.server === 1 ? '● ' : '') + state.p1Name;
+  p2d.textContent = (state.server === 2 ? '● ' : '') + state.p2Name;
+  p1d.className = 'player-name ' + (state.server === 1 ? 'serving' : 'not-serving');
+  p2d.className = 'player-name ' + (state.server === 2 ? 'p2-serving' : 'not-serving');
+
+  // Handout indicator
+  document.getElementById('handout-indicator').style.display = state.isHandout ? 'block' : 'none';
+
+  // Serve side buttons — only allow changes on handout
+  const serveLBtn = document.getElementById('btn-serve-L');
+  const serveRBtn = document.getElementById('btn-serve-R');
+  serveLBtn.className = 'mono serve-btn ' + (state.serveSide === 'L' ? 'active' : 'inactive');
+  serveRBtn.className = 'mono serve-btn ' + (state.serveSide === 'R' ? 'active' : 'inactive');
+  if (!state.isHandout) {
+    serveLBtn.style.opacity = '0.35';
+    serveRBtn.style.opacity = '0.35';
+    serveLBtn.style.pointerEvents = 'none';
+    serveRBtn.style.pointerEvents = 'none';
+  } else {
+    serveLBtn.style.opacity = '1';
+    serveRBtn.style.opacity = '1';
+    serveLBtn.style.pointerEvents = 'auto';
+    serveRBtn.style.pointerEvents = 'auto';
+  }
+  document.getElementById('btn-server-1').className = 'mono server-btn ' + (state.server === 1 ? 'active' : 'inactive');
+  document.getElementById('btn-server-2').className = 'mono server-btn ' + (state.server === 2 ? 'active' : 'inactive');
+
+  // Game num
+  document.getElementById('match-game-num').textContent = 'G' + (state.gameScores.length + 1) + '/' + MAX_GAMES;
+
+  // Game dots
+  let d1 = '', d2 = '';
+  for (let i = 0; i < GAMES_TO_WIN; i++) {
+    d1 += '<div class="dot ' + (i < state.p1Games ? 'won' : 'empty') + '"></div>';
+    d2 += '<div class="dot ' + (i < state.p2Games ? 'won' : 'empty') + '"></div>';
+  }
+  document.getElementById('p1-dots').innerHTML = d1;
+  document.getElementById('p2-dots').innerHTML = d2;
+
+  // Point indicator
+  const ind = document.getElementById('point-indicator');
+  const isGP = (state.p1Score >= GAME_POINT-1 && state.p1Score > state.p2Score) || (state.p2Score >= GAME_POINT-1 && state.p2Score > state.p1Score);
+  const isMP = isGP && ((state.p1Games === GAMES_TO_WIN-1 && state.p1Score > state.p2Score) || (state.p2Games === GAMES_TO_WIN-1 && state.p2Score > state.p1Score));
+  if (isMP) { ind.style.display = 'block'; ind.className = 'bebas point-indicator match'; ind.textContent = '⚡ MATCH POINT ⚡'; }
+  else if (isGP) { ind.style.display = 'block'; ind.className = 'bebas point-indicator game'; ind.textContent = '● GAME POINT ●'; }
+  else { ind.style.display = 'none'; }
+
+  // Previous games
+  if (state.gameScores.length > 0) {
+    document.getElementById('prev-games-box').style.display = 'block';
+    let html = '';
+    state.gameScores.forEach((g,i) => {
+      html += '<div class="mono log-entry"><span>Game ' + (i+1) + '</span><span>' +
+        '<span style="color:' + (g.winner===1?'#22c55e':'#94a3b8') + '">' + g.p1 + '</span> - ' +
+        '<span style="color:' + (g.winner===2?'#22c55e':'#94a3b8') + '">' + g.p2 + '</span></span></div>';
+    });
+    document.getElementById('prev-games-list').innerHTML = html;
+  } else {
+    document.getElementById('prev-games-box').style.display = 'none';
+  }
+
+  // Call log
+  const calls = state.rallies.filter(r => r.type !== 'point');
+  if (calls.length > 0) {
+    document.getElementById('call-log-box').style.display = 'block';
+    let html = '';
+    calls.slice(-5).reverse().forEach(r => {
+      const ct = CALLS[r.type.toUpperCase()];
+      if (ct) {
+        html += '<div class="mono log-entry"><span style="color:' + ct.color + '">' + ct.icon + ' ' + ct.label + '</span>' +
+          '<span>' + r.time + ' · ' + r.p1Score + '-' + r.p2Score + (r.aiAssisted ? ' 🤖' : '') + '</span></div>';
+      }
+    });
+    document.getElementById('call-log-list').innerHTML = html;
+  } else {
+    document.getElementById('call-log-box').style.display = 'none';
+  }
+}
+
+function setServeSide(s) { state.serveSide = s; updateMatchUI(); }
+function setServer(p) { state.server = p; updateMatchUI(); }
+
+// ── Match lifecycle ──
+function startMatch() {
+  state.p1Name = document.getElementById('inp-p1').value || 'Player 1';
+  state.p2Name = document.getElementById('inp-p2').value || 'Player 2';
+  state.p1Score = 0; state.p2Score = 0;
+  state.p1Games = 0; state.p2Games = 0;
+  state.gameScores = []; state.rallies = [];
+  state.matchTime = 0; state.serveSide = 'R'; state.server = 1;
+  state.aiAnalysis = null; state.capturedFrame = null; state.lastCallType = null;
+  state.isHandout = true;
+
+  showScreen('match');
+  startTimer();
+  updateMatchUI();
+}
+
+function resetMatch() {
+  stopTimer();
+  if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+  state.cameraActive = false;
+  showScreen('setup');
+}
+
+function showResultScreen() {
+  const winner = state.p1Games >= GAMES_TO_WIN ? state.p1Name : state.p2Name;
+  document.getElementById('result-winner').textContent = winner + ' wins!';
+  document.getElementById('result-p1-name').textContent = state.p1Name;
+  document.getElementById('result-p2-name').textContent = state.p2Name;
+
+  const p1g = document.getElementById('result-p1-games');
+  const p2g = document.getElementById('result-p2-games');
+  p1g.textContent = state.p1Games;
+  p2g.textContent = state.p2Games;
+  p1g.className = 'bebas result-score-val ' + (state.p1Games > state.p2Games ? 'won' : 'lost');
+  p2g.className = 'bebas result-score-val ' + (state.p2Games > state.p1Games ? 'won' : 'lost');
+
+  let ghtml = '';
+  state.gameScores.forEach((g,i) => {
+    ghtml += '<div class="mono result-game"><span>Game ' + (i+1) + ':</span>' +
+      '<span style="color:' + (g.winner===1?'#22c55e':'#94a3b8') + '">' + g.p1 + '</span>' +
+      '<span> - </span>' +
+      '<span style="color:' + (g.winner===2?'#22c55e':'#94a3b8') + '">' + g.p2 + '</span></div>';
+  });
+  document.getElementById('result-game-list').innerHTML = ghtml;
+  document.getElementById('result-meta').textContent = 'Match time: ' + formatTime(state.matchTime) + ' · ' + state.rallies.length + ' rallies';
+
+  showScreen('result');
+}
+</script>
+</body>
+</html>
